@@ -5,6 +5,7 @@ import dev.cloudstorage.config.SettingsMigration;
 import dev.cloudstorage.lifecycle.PaperShutdownCheckpoint;
 import dev.cloudstorage.port.Ports;
 import dev.cloudstorage.printer.CloudShulker;
+import dev.cloudstorage.printer.AxShulkersIsolation;
 import dev.cloudstorage.storage.*;
 import dev.cloudstorage.transfer.*;
 import dev.cloudstorage.ui.CloudMenu;
@@ -25,6 +26,7 @@ public final class CloudStoragePlugin extends JavaPlugin {
     private Transfers transfers;
     private CloudMenu menus;
     private CloudShulker shulkers;
+    private AxShulkersIsolation shulkerIsolation;
     private Ports ports;
     private Set<String> blocked;
     private boolean ready;
@@ -35,6 +37,9 @@ public final class CloudStoragePlugin extends JavaPlugin {
         // Disabling the plugin would expose the discovery components as vanilla contents.
         shulkers=new CloudShulker(this);
         getServer().getPluginManager().registerEvents(shulkers,this);
+        shulkerIsolation=new AxShulkersIsolation(this);
+        getServer().getPluginManager().registerEvents(shulkerIsolation,this);
+        shulkerIsolation.installExisting();
         try {
             if (!Bukkit.getMinecraftVersion().equals("1.21.1")) throw new IllegalStateException("Only Paper Minecraft 1.21.1 is supported");
             saveDefaultConfig();
@@ -124,6 +129,7 @@ public final class CloudStoragePlugin extends JavaPlugin {
     public Transfers transfers() { return transfers; }
     public CloudMenu menus() { return menus; }
     public CloudShulker shulkers() { return shulkers; }
+    public AxShulkersIsolation shulkerIsolation() { return shulkerIsolation; }
     public Ports ports() { return ports; }
     public boolean ready() { return ready; }
 }

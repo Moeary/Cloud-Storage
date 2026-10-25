@@ -20,7 +20,7 @@ def main():
     shutil.copy2(args.paper,run/'paper.jar')
     shutil.copy2(manual/'eula.txt',run/'eula.txt')
     (run/'plugins').mkdir()
-    plugin=root/'target/cloud-storage-0.2.2.jar'
+    plugin=root/'target/cloud-storage-0.2.3.jar'
     shutil.copy2(plugin,run/'plugins/CloudStorage.jar')
     properties=(manual/'server.properties').read_text(encoding='utf-8-sig').replace('server-port=25565','server-port='+str(args.port)).replace('online-mode=true','online-mode=false')
     assert 'server-ip=127.0.0.1' in properties
@@ -35,7 +35,7 @@ def main():
         for cycle in range(args.cycles):
             server.start()
             server.command('cs status')
-            server.wait_for('version=0.2.2 frozen=false pending=0')
+            server.wait_for('version=0.2.3 frozen=false pending=0')
             log=(run/'logs/latest.log').read_text(encoding='utf-8')
             assert 'Standalone shutdown checkpoint unsupported' not in log
             if cycle>0: assert 'standalone checkpoint accepted' in log

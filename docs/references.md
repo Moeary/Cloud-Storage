@@ -11,6 +11,8 @@
 
 上游在 `references/` 保留只读 shallow clone，Git 忽略。可用 `git -C references/<name> rev-parse HEAD` 核对。
 
+0.2.3 共存测试使用官方 [AxShulkers 1.24.0 发布 JAR](https://github.com/Artillex-Studios/AxShulkers/releases/tag/1.24.0)，SHA256 `ce53478f169d2099e827aa5c4dda4a75c280a4ee12664fce46479587521f6dfb`。运行原始发布文件，不修改上游源码；CloudStorage 仅通过 Bukkit 注册委托隔离云目录事件，AxShulkers 不是编译依赖，也未打入本插件 JAR。
+
 2026-10-24 补核对了指挥官实际安装的 `[三改打印机] litematica-printer-mc1.21.1-1.3-beta.4-local.jar`，fabric 版本 `1.3-beta.4-1790562282161-local`，SHA-256 `8eb0d291afecfe344c649b39a69b0a59b10ee2eace5033f2b2c6f4928c1e4c57`。该版本从玩家 Inventory 索引 9 开始查找潜影盒，取料/回塞使用两次普通 PICKUP，且会紧接关闭窗口；与当前上游 HEAD 的 QUICK_MOVE/确认逻辑不同。兼容判断以实际安装版本为准。本次仅读取 JAR 元信息/字节码观察协议行为，没有改动或重新分发客户端模组。
 
 参考官方 [Paper 项目说明](https://docs.papermc.io/paper/dev/project-setup/) 与 [下载 API](https://docs.papermc.io/misc/downloads-service/)。目标锁定 Paper **1.21.1 build 133**，SHA-256 `39bd8c00b9e18de91dcabd3cc3dcfa5328685a53b7187a2f63280c22e2d287b9`。

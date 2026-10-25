@@ -8,6 +8,8 @@ CloudStorage 是独立 Paper 1.21.1 插件。命令与 54 格虚拟大箱子共�
 
 云潜影盒通过 PDC 所有者、token UUID、仓库和 catalog_version=3 标识。配套客户端使用 Fabric 自定义 payload `cloudstorage:demand`（有界 VarInt 长度 UTF-8 字符串，最多 512 字节、8 种候选材料），服务端按玩家限速并检查绑定仓库权限，直接按普通 ItemData 键查询余额；这一步不转移库存。auto 仅显示一种有库存的目标材料，保留 26 个回填格；固定材料/固定页仍最多 26 种。开盒时捕获目录快照并暂停刷新。服务端提供 27 格窗口，兼容 PICKUP→光标→玩家槽及 QUICK_MOVE。涉及云仓的光标交易使用同一 Ledger prepare/settle，快照为玩家 36 个存储槽加第 37 个光标项。内部光标/玩家槽移动只搬运已有真实物品，目录屏蔽原版取出路径。
 
+AxShulkersIsolation 在 AxShulkers 1.24.0 启用后装饰其 Bukkit RegisteredListener；云盒及云窗口的事件只交给 CloudStorage，普通盒仍调用 Ax 原逻辑。包装保持插件归属、优先级与取消处理，配置和数据库各自独立。未知版本或监听器注册变化不放行云盒。配套 cloud.2 打印机在 PLUGIN 路径先检查本人云盒，再查实体盒；auto 缺料等待有界，旧/他人目录不进入普通盒扫描。
+
 GUI 搜索按钮保存有时限的 UUID 请求，AsyncChatEvent 消费关键词并取消公开广播，再切回主线程重新校验仓库权限、打开过滤菜单。中文名称来自固定 Minecraft 1.21.1 本地官方 zh_cn 语言资源；不依赖在线翻译。新入库策略与取货策略独立：拒收特殊物品，保留升级前资产取出能力。
 
 `/cs shulker off` 仅移除本人 UUID 的目录壳，不是库存转移，也不读取或改变账本数量。先释放背包目录槽，再关闭打印 GUI，让 Paper 归还已扣账的真实光标材料；清除光标时只匹配本人目录标识。延迟开盒仍核对原槽和 token UUID，已移除的壳不能再次打开；不自动重发。

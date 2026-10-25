@@ -60,6 +60,84 @@ async function close(bot) { if (bot.currentWindow) { bot.closeWindow(bot.current
 async function click(bot,slot,button=0,mode=0) { await bot.clickWindow(slot,button,mode); await sleep(250); }
 async function equip(bot,name) { const item=bot.inventory.items().find(i=>i.name===name); assert.ok(item,'missing '+name); await bot.equip(item,'hand'); await sleep(200); }
 
+async function coexist(alice,restart) {
+  await consoleCommand('deop CloudAlice');
+  await command(alice,'/cs status','shulker-isolation=ready');
+  const catalog=()=>alice.inventory.items().find(i=>i.name==='purple_shulker_box');
+  const openItem=async(name)=>{
+    const item=alice.inventory.items().find(i=>i.name===name); assert.ok(item);
+    const opened=once(alice,'windowOpen'); await click(alice,item.slot,1,0);
+    const [window]=await opened; await sleep(200); return window;
+  };
+  if (!restart) {
+    await clear(alice);
+    await consoleCommand('give CloudAlice minecraft:stone 128');
+    await command(alice,'/cs deposit all','deposit=128');
+    await command(alice,'/cs shulker stone','云潜影盒已绑定');
+    await consoleCommand('item replace entity CloudAlice inventory.1 with minecraft:blue_shulker_box[minecraft:container=[{slot:0,item:{id:"minecraft:stone",count:32}}]]');
+  }
+  assert.equal(await total('STONE'),128);
+  const original=count(alice,'stone');
+  for (let cycle=0;cycle<3;cycle++) {
+    const window=await openItem('purple_shulker_box');
+    assert.equal(window.slots[0]?.name,'stone');
+    await click(alice,0,0,0);
+    assert.equal(alice.currentWindow.selectedItem?.count,64);
+    assert.equal(await total('STONE'),64);
+    const empty=window.slots.findIndex((i,index)=>index>=27 && i===null);
+    await click(alice,empty,0,0);
+    const source=window.slots.findIndex((i,index)=>index>=27 && i?.name==='stone' && i.count===64);
+    await click(alice,source,0,0); await click(alice,26,0,0);
+    assert.equal(await total('STONE'),128);
+    await close(alice);
+    assert.equal(count(alice,'stone'),original);
+    assert.ok(!JSON.stringify(catalog()).includes('AxShulkers-UUID'),'cloud shell must not acquire Ax identity');
+  }
+  pass('AxShulkers installed: repeated cloud PICKUP/return conserves ledger and never registers the catalogue as a physical shulker');
+  let window=await openItem('blue_shulker_box');
+  assert.equal(window.slots[0]?.name,'stone');
+  assert.equal(window.slots[0]?.count,32);
+  await click(alice,0,0,1); await close(alice);
+  assert.equal(count(alice,'stone'),original+32);
+  assert.equal(await total('STONE'),128);
+  window=await openItem('blue_shulker_box');
+  const source=window.slots.findIndex((i,index)=>index>=27 && i?.name==='stone' && i.count===32);
+  await click(alice,source,0,1); await close(alice);
+  assert.equal(count(alice,'stone'),original);
+  pass('non-OP ordinary shulker opens through AxShulkers and takes/returns physical stock without touching cloud ledger');
+  await equip(alice,'purple_shulker_box');
+  const tokenCount=count(alice,'purple_shulker_box');
+  alice._client.write('block_dig',{status:4,location:{x:0,y:0,z:0},face:0,sequence:0});
+  await sleep(300); assert.equal(count(alice,'purple_shulker_box'),tokenCount);
+  const opened=once(alice,'windowOpen'); alice.activateItem(); await opened; await sleep(250);
+  assert.equal(alice.currentWindow.slots[0]?.name,'stone');
+  await command(alice,'/cs shulker off','移除=1');
+  assert.equal(catalog(),undefined);
+  assert.equal(await total('STONE'),128);
+  await command(alice,'/cs shulker stone','云潜影盒已绑定');
+  const bob=await connect('CloudBob');
+  const token=catalog();
+  const tokenSource=token.slot>=36?'hotbar.'+(token.slot-36):'inventory.'+(token.slot-9);
+  await consoleCommand('item replace entity CloudBob inventory.0 from entity CloudAlice '+tokenSource);
+  await click(bob,9,1,0); assert.equal(bob.currentWindow,null);
+  await consoleCommand('clear CloudBob minecraft:purple_shulker_box');
+  const pending=await sql("SELECT count(*) n FROM journal WHERE state='PENDING'"); assert.equal(pending[0].n,0);
+  pass('hand opening and cloud-off command bypass Ax command restriction; foreign UUID remains blocked; no pending transfers');
+}
+
+async function coexistBlocked(alice) {
+  await consoleCommand('deop CloudAlice');
+  await command(alice,'/cs status','shulker-isolation=blocked');
+  await command(alice,'/cs shulker','隔离未就绪');
+  const token=alice.inventory.items().find(i=>i.name==='purple_shulker_box'); assert.ok(token);
+  await sleep(1200); await click(alice,token.slot,1,0); assert.equal(alice.currentWindow,null);
+  assert.equal(await total('STONE'),128);
+  const ordinary=alice.inventory.items().find(i=>i.name==='blue_shulker_box'); assert.ok(ordinary);
+  const opened=once(alice,'windowOpen'); await click(alice,ordinary.slot,1,0); await opened;
+  assert.equal(alice.currentWindow.slots[0]?.count,32); await close(alice);
+  pass('unsupported Ax version blocks cloud issuance/opening but preserves ordinary shulker and balances');
+}
+
 async function portQuotas(alice) {
   await consoleCommand('deop CloudAlice');
   await command(alice,'/cs shulker off','云潜影盒已关闭');
@@ -112,6 +190,8 @@ async function main() {
   const alice=await connect('CloudAlice');
   await consoleCommand('op CloudAlice');
   const phase=process.env.CLOUD_TEST_PHASE;
+  if (phase==='coexist' || phase==='coexist-restart') { await coexist(alice,phase==='coexist-restart'); return; }
+  if (phase==='coexist-blocked') { await coexistBlocked(alice); return; }
   if (phase==='guard') {
     await command(alice,'/cs status','error=云仓初始化失败');
     const token=alice.inventory.items().find(i=>i.name==='purple_shulker_box');

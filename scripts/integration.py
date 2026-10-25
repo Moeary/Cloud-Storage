@@ -16,7 +16,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 RUN = ROOT / "run" / "integration" / time.strftime("%Y%m%d-%H%M%S")
-PORT = 25566
+PORT = int(os.environ.get("CLOUD_TEST_PORT", "25566"))
 CREATE_FLAGS = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
 
@@ -144,7 +144,7 @@ def main():
     eula = ROOT / "run/server/eula.txt"
     if not eula.exists() or "eula=true" not in eula.read_text(encoding="utf-8-sig"):
         raise RuntimeError("Explicit EULA acceptance is required: pixi run server-prepare -AcceptEula")
-    plugin = ROOT / "target/cloud-storage-0.2.2.jar"
+    plugin = ROOT / "target/cloud-storage-0.2.3.jar"
     if not plugin.exists():
         raise RuntimeError("Run pixi run build first")
     npm_cli = ROOT / ".pixi/envs/default/node_modules/npm/bin/npm-cli.js"

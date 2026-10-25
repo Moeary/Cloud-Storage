@@ -19,6 +19,7 @@ public final class CloudCommand implements CommandExecutor,TabCompleter {
             if (sub.equals("recover")) { recover(sender,args); return true; }
             if (sub.equals("status")) {
                 plugin.message(sender,"version="+plugin.getPluginMeta().getVersion()+" frozen="+plugin.ledger().frozen()+" pending="+plugin.ledger().pending().size());
+                plugin.message(sender,"shulker-isolation="+(plugin.shulkerIsolation().available()?"ready":"blocked"));
                 return true;
             }
             if (sub.equals("help")) { help(sender); return true; }

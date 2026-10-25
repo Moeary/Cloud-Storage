@@ -1,6 +1,6 @@
 [workspace]
 name = "cloud-storage"
-version = "0.2.2"
+version = "0.2.3"
 description = "UUID-bound transactional cloud storage for Paper 1.21.1"
 channels = ["conda-forge"]
 platforms = ["win-64"]
@@ -26,3 +26,4 @@ audit = "python scripts/audit.py"
 integration = "python scripts/integration.py"
 integration-placement = { cmd = "python scripts/integration.py", env = { CLOUD_TEST_PLACEMENT = "1" } }
 client-world = "python scripts/client_world_smoke.py"
+integration-shulkers = "python scripts/shulker_coexist_smoke.py"

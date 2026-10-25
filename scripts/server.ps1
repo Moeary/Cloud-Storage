@@ -36,7 +36,7 @@ generator-settings={"layers":[{"block":"minecraft:bedrock","height":1},{"block":
 }
 if ($Action -eq 'Prepare') { Write-Output "Prepared Paper 1.21.1 build 133 at $serverPath"; exit 0 }
 if (!(Test-Path (Join-Path $serverPath 'eula.txt')) -or !(Select-String -LiteralPath (Join-Path $serverPath 'eula.txt') -Pattern '^eula=true$' -Quiet)) { throw 'Accept the Minecraft EULA explicitly with pixi run server-prepare -AcceptEula' }
-$pluginJar = Join-Path $projectRoot 'target/cloud-storage-0.2.2.jar'
+$pluginJar = Join-Path $projectRoot 'target/cloud-storage-0.2.3.jar'
 if (!(Test-Path -LiteralPath $pluginJar)) { throw 'Run pixi run build first' }
 New-Item -ItemType Directory -Force (Join-Path $serverPath 'plugins') | Out-Null
 Copy-Item -LiteralPath $pluginJar -Destination (Join-Path $serverPath 'plugins/CloudStorage.jar') -Force

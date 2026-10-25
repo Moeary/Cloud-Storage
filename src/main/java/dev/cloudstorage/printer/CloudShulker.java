@@ -70,7 +70,7 @@ public final class CloudShulker implements Listener {
         refresh(player);
     }
 
-    private boolean conflictingOpener() { return plugin.getServer().getPluginManager().getPlugin("AxShulkers")!=null; }
+    private boolean conflictingOpener() { return !plugin.shulkerIsolation().available(); }
 
     public CloudShulker(CloudStoragePlugin plugin) {
         this.plugin=plugin;
@@ -121,7 +121,7 @@ public final class CloudShulker implements Listener {
     }
 
     public void give(Player player,int page,List<String> materials) {
-        if (conflictingOpener()) throw new StorageException("检测到 AxShulkers；请勿让其他开盒插件处理云目录，移除冲突插件后重启");
+        if (conflictingOpener()) throw new StorageException("AxShulkers 云盒隔离未就绪；当前仅支持 1.24.0，请检查启动日志并正常重启");
         if (!plugin.getConfig().getBoolean("printer.enabled") || !player.hasPermission("cloudstorage.printer")) throw new StorageException("云潜影盒未启用或缺少权限");
         if (page< -1 || page>157) throw new StorageException("页码须为 1..158，或使用 auto");
         if (materials.size()>CatalogPlanner.SIZE) throw new StorageException("指定目录最多 26 种材料");

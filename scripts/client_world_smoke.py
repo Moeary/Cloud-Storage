@@ -29,6 +29,7 @@ def main():
     parser.add_argument('--replacements',type=Path,required=True)
     parser.add_argument('--hold-seconds',type=int,default=30)
     parser.add_argument('--restock-probe',type=Path,help='Separately built mapped Fabric restock harness; disposable client only')
+    parser.add_argument('--axshulkers',type=Path,help='Official AxShulkers 1.24.0 JAR; enables cloud priority/physical fallback assertions')
     args=parser.parse_args()
     client=args.client.resolve()
     manifest=args.replacements.resolve()
@@ -44,6 +45,7 @@ def main():
     server_dir=run/'server'
     game.mkdir(parents=True)
     (game/'mods').mkdir()
+    if args.axshulkers: (game/'cloud-coexist.enabled').touch()
     replaced={row['id'] for row in replacements}
     for jar in (client/'mods').glob('*.jar'):
         if metadata(jar).get('id') not in replaced: shutil.copy2(jar,game/'mods'/jar.name)
@@ -64,7 +66,14 @@ def main():
     for name in ('CloudStorage.jar','ProtocolLib.jar','PaperAccurateBlockPlacement-1.2.0.jar'):
         shutil.copy2(manual/'plugins'/name,server_dir/'plugins'/name)
     # Test the candidate plugin without deploying it to the user's manual server first.
-    shutil.copy2(ROOT/'target/cloud-storage-0.2.2.jar',server_dir/'plugins/CloudStorage.jar')
+    shutil.copy2(ROOT/'target/cloud-storage-0.2.3.jar',server_dir/'plugins/CloudStorage.jar')
+    if args.axshulkers:
+        shutil.copy2(args.axshulkers,server_dir/'plugins/AxShulkers.jar')
+        (server_dir/'plugins/AxShulkers').mkdir()
+        with zipfile.ZipFile(args.axshulkers) as jar: ax_config=jar.read('config.yml').decode()
+        (server_dir/'plugins/AxShulkers/config.yml').write_text(ax_config.replace('type: "h2"','type: "sqlite"'),encoding='utf-8')
+        prior=sorted((ROOT/'run').glob('shulker-coexist-*/libraries'))
+        if prior: shutil.copytree(prior[-1],server_dir/'libraries',dirs_exist_ok=True)
     (server_dir/'plugins/PaperAccurateBlockPlacement').mkdir()
     shutil.copy2(manual/'plugins/PaperAccurateBlockPlacement/config.yml',server_dir/'plugins/PaperAccurateBlockPlacement/config.yml')
     version=json.loads((client/(client.name+'.json')).read_text(encoding='utf-8-sig'))
@@ -130,6 +139,8 @@ def main():
                     if args.restock_probe:
                         server.command('give CloudSmoke minecraft:stone 64')
                         server.command('give CloudSmoke minecraft:red_concrete 64')
+                        if args.axshulkers:
+                            server.command('item replace entity CloudSmoke inventory.0 with minecraft:blue_shulker_box[minecraft:container=[{slot:0,item:{id:"minecraft:stone",count:32}},{slot:1,item:{id:"minecraft:gravel",count:16}}]]')
                 if joined_at is not None and 'CloudSmoke lost connection' in server_text:
                     raise RuntimeError('Client disconnected before test completion')
                 exported=game/'.mixin.out/class/fi/dy/masa/litematica/util'
@@ -137,8 +148,12 @@ def main():
                 probe_path=game/'dependency-probe.json'
                 probe=json.loads(probe_path.read_text()) if probe_path.exists() else {}
                 if args.restock_probe and (game/'cloud-fixture.json').exists() and not filled:
-                    # The v3 shell occupies inventory.0; leave it untouched.
-                    for slot in range(1,27): server.command(f'item replace entity CloudSmoke inventory.{slot} with minecraft:cobblestone 64')
+                    fixture=json.loads((game/'cloud-fixture.json').read_text())
+                    cloud_slot=fixture['cloud_slot']-9
+                    assert 0<=cloud_slot<27
+                    # Replace disposable fixtures only; preserve the actual UUID-bound cloud shell.
+                    for slot in range(27):
+                        if slot!=cloud_slot: server.command(f'item replace entity CloudSmoke inventory.{slot} with minecraft:cobblestone 64')
                     for slot in range(9): server.command(f'item replace entity CloudSmoke hotbar.{slot} with minecraft:oak_planks 64')
                     filled=True
                 restock_path=game/'cloud-restock.json'

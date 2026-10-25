@@ -1,8 +1,10 @@
 # CloudStorage
 
-Paper **1.21.1** / Java **21** 的云仓插件，当前版本 `0.2.2`。源码独立实现，上游仅用于研究兼容行为；参考 commit 见 [来源说明](docs/references.md)。
+Paper **1.21.1** / Java **21** 的云仓插件，当前版本 `0.2.3`。源码独立实现，上游仅用于研究兼容行为；参考 commit 见 [来源说明](docs/references.md)。
 
-配套客户端源码：[Moeary/litematica-printer-cloud](https://github.com/Moeary/litematica-printer-cloud)，基于四改 v1.1.5 的 `1.1.5-cloud.1+1.21.1` 云仓适配版。完整取料测试与限制见 [0.2.0 验证记录](docs/testing-0.2.0.md)。
+0.2.3 增加 AxShulkers **1.24.0** 共存隔离：普通盒保持原插件处理，云盒由 CloudStorage 独占；配套打印机 `1.1.5-cloud.2` 优先云盒，云仓缺料后回退实体盒。`/cs status` 显示 `shulker-isolation=ready|blocked`，无需修改 AxShulkers 的黑名单。[共存验证与边界](docs/testing-0.2.3.md)。
+
+配套客户端源码：[Moeary/litematica-printer-cloud](https://github.com/Moeary/litematica-printer-cloud)，基于四改 v1.1.5 的 `1.1.5-cloud.2+1.21.1` 云仓适配版。完整取料测试与限制见 [0.2.0 验证记录](docs/testing-0.2.0.md)。
 
 普通玩家权限、默认共享仓与接口 5+5 的升级验证见 [0.2.1 验证记录](docs/testing-0.2.1.md)。
 
@@ -85,7 +87,7 @@ GUI：左键/Shift 取一组，右键取一个；在背包 Shift 点击存入。
 1. 云仓中存入普通无自定义元数据的建筑方块。
 2. `/cs shulker`，云潜影盒直接发入背包主区域（客户端槽位 9..35）。旧盒在进服或重新执行该命令时会自动迁入主背包，保留 UUID/仓库绑定；不会用后台定时器强行搬动玩家正在操作的手持物品。打印时请将盒子留在主背包三排。
 3. 打印机设置 `useQuickShulker=true`、`shulkerSource=PLUGIN`。
-4. 配套 `1.1.5-cloud.1+1.21.1` 打印机通过 `cloudstorage:demand` 通道请求目标材料，收到服务端目录后右键开盒，再正常取料。普通玩家无需 OP；材料选择不使用聊天命令，不触发命令防刷。服务端以真实鼠标/背包与 SQLite 库存为准，不采信客户端预测的物品。回塞同样入账。
+4. 配套 `1.1.5-cloud.2+1.21.1` 打印机通过 `cloudstorage:demand` 通道请求目标材料，收到服务端目录后右键开盒，再正常取料。普通玩家无需 OP；材料选择不使用聊天命令，不触发命令防刷。服务端以真实鼠标/背包与 SQLite 库存为准，不采信客户端预测的物品。回塞同样入账。
 
 不用打印时执行 `/cs shulker off`。该命令销毁自己的目录壳，关闭打印窗口时由 Paper 归还已经取出的真实鼠标物品；再次执行 `/cs shulker` 可恢复，不会自动重发占用背包。
 
