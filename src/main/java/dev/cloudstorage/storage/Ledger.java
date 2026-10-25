@@ -18,6 +18,7 @@ public final class Ledger implements AutoCloseable {
     private final int maxTypes;
     private boolean frozen;
     private boolean failed;
+    private boolean confirmedShutdown;
     private final String session=UUID.randomUUID().toString();
 
     public Ledger(Path path, long capacity, int maxTypes) throws SQLException {
@@ -46,7 +47,9 @@ public final class Ledger implements AutoCloseable {
             throw e;
         }
         try {
-            frozen = "true".equals(meta("active")) || !pending().isEmpty();
+            boolean hasPending=!pending().isEmpty();
+            confirmedShutdown=!hasPending && ShutdownReceipt.completed(path,meta("session"),meta("shutdown_ready"));
+            frozen = ("true".equals(meta("active")) && !confirmedShutdown) || hasPending;
             putMeta("session",session);
             putMeta("shutdown_ready","");
             putMeta("active", "true");
@@ -57,6 +60,8 @@ public final class Ledger implements AutoCloseable {
     }
 
     public synchronized boolean frozen() { return frozen || failed; }
+    public boolean confirmedShutdown() { return confirmedShutdown; }
+    public String session() { return session; }
     public synchronized void freeze() { frozen = true; }
 
     private String meta(String key) throws SQLException {
@@ -241,9 +246,9 @@ public final class Ledger implements AutoCloseable {
     }
 
     /** Only a candidate: the process supervisor clears active AFTER the JVM has exited normally. */
-    public synchronized void prepareShutdown() {
-        if (frozen() || !pending().isEmpty()) return;
-        try { putMeta("shutdown_ready",session); } catch (SQLException e) { throw failure(e); }
+    public synchronized boolean prepareShutdown() {
+        if (frozen() || !pending().isEmpty()) return false;
+        try { putMeta("shutdown_ready",session); return true; } catch (SQLException e) { throw failure(e); }
     }
 
     @Override public synchronized void close() throws SQLException { db.close(); }

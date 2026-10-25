@@ -12,7 +12,7 @@ import subprocess
 import sys
 import threading
 import time
-from checkpoint import finalize_checkpoint
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 RUN = ROOT / "run" / "integration" / time.strftime("%Y%m%d-%H%M%S")
@@ -64,13 +64,21 @@ class Server:
         self.process.stdin.write(command + "\n")
         self.process.stdin.flush()
 
-    def stop(self, crash=False):
+    def wait_for(self,text,timeout=30):
+        deadline=time.monotonic()+timeout
+        while time.monotonic()<deadline:
+            try:
+                if text in self.lines.get(timeout=0.5): return
+            except queue.Empty: pass
+        raise TimeoutError('Missing server log: '+text)
+
+    def stop(self, crash=False,send_stop=True):
         if self.process is None:
             return
         if self.process.poll() is None:
             if crash:
                 self.process.kill()  # Only our disposable, tracked test child.
-            else:
+            elif send_stop:
                 self.command("stop")
             try:
                 self.process.wait(timeout=45)
@@ -80,9 +88,19 @@ class Server:
                 raise RuntimeError("Paper did not stop cleanly")
         self.reader.join(timeout=3)
         self.log.close()
-        if not crash:
-            finalize_checkpoint(RUN / "plugins/CloudStorage/storage.sqlite", self.process.returncode)
+        # Deliberately NO supervisor finalizer: mimic MCSM directly launching the plugin JAR.
+        # The old code passed only because the test harness silently cleared its dirty marker.
         self.process = None
+
+
+def checkpoint_probe():
+    classes=RUN/'checkpoint-probe-classes'
+    classes.mkdir()
+    classpath=os.pathsep.join(str(p) for p in (RUN/'libraries').rglob('*.jar'))
+    subprocess.run([str(Path(os.environ['JAVA_HOME'])/'bin/javac.exe'),'--release','21','-encoding','UTF-8','-proc:none','-cp',classpath,'-d',str(classes),str(ROOT/'tests/checkpoint-probe/CheckpointProbe.java')],check=True)
+    with zipfile.ZipFile(RUN/'plugins/CloudCheckpointProbe.jar','w') as jar:
+        jar.write(ROOT/'tests/checkpoint-probe/plugin.yml','plugin.yml')
+        for source in classes.rglob('*.class'): jar.write(source,source.relative_to(classes).as_posix())
 
 
 def clients(server, phase):
@@ -126,7 +144,7 @@ def main():
     eula = ROOT / "run/server/eula.txt"
     if not eula.exists() or "eula=true" not in eula.read_text(encoding="utf-8-sig"):
         raise RuntimeError("Explicit EULA acceptance is required: pixi run server-prepare -AcceptEula")
-    plugin = ROOT / "target/cloud-storage-0.2.1-SNAPSHOT.jar"
+    plugin = ROOT / "target/cloud-storage-0.2.2.jar"
     if not plugin.exists():
         raise RuntimeError("Run pixi run build first")
     npm_cli = ROOT / ".pixi/envs/default/node_modules/npm/bin/npm-cli.js"
@@ -154,6 +172,7 @@ def main():
     properties = (ROOT / "run/server/server.properties").read_text(encoding="utf-8-sig")
     properties = properties.replace("server-port=25565", f"server-port={PORT}").replace("online-mode=true", "online-mode=false")
     (RUN / "server.properties").write_text(properties, encoding="utf-8")
+    checkpoint_probe()
     server = Server()
     started = time.time()
     print("Disposable server: " + str(RUN), flush=True)
@@ -162,18 +181,53 @@ def main():
         clients(server, "main")
         clients(server, "ports")
         server.stop()
+        with closing(sqlite3.connect(RUN / "plugins/CloudStorage/storage.sqlite")) as db:
+            meta=dict(db.execute("SELECT * FROM meta"))
+            assert meta['active']=='true' and meta['shutdown_ready']==meta['session']
+        assert (RUN / "plugins/CloudStorage/storage.sqlite.shutdown.properties").is_file()
+        server.start()
+        clients(server, "restart")
+        server.stop()
         server.start()
         clients(server, "restart")
         server.stop(crash=True)
         server.start()
         clients(server, "crash")
         server.stop()
+        # Kill AFTER onDisable has prepared a candidate, but BEFORE all world I/O finishes.
+        server.start()
+        (RUN/'checkpoint-barrier.enabled').write_text('test-only',encoding='utf-8')
+        server.command('stop')
+        server.wait_for('CHECKPOINT_PROBE_BARRIER')
+        with closing(sqlite3.connect(RUN/'plugins/CloudStorage/storage.sqlite')) as db:
+            meta=dict(db.execute('SELECT * FROM meta'))
+            assert meta['active']=='true' and meta['shutdown_ready']==meta['session']
+        server.stop(crash=True)
+        (RUN/'checkpoint-barrier.enabled').unlink()
+        server.start()
+        clients(server,'crash')
+        server.stop()
+        # Hot-disable must never produce a clean checkpoint, even if the server later stops.
+        server.start()
+        server.command('checkpointprobe unload')
+        server.wait_for('CHECKPOINT_PROBE_UNLOADED')
+        server.stop()
+        server.start()
+        clients(server,'crash')
+        server.stop()
+        # Paper's abnormalExit uses System.exit(70) even after graceful world flushing.
+        server.start()
+        server.command('checkpointprobe abnormal')
+        server.stop(send_stop=False)
+        server.start()
+        clients(server,'crash')
+        server.stop()
         with closing(sqlite3.connect(RUN / "plugins/CloudStorage/storage.sqlite")) as conn, conn:
             conn.execute("PRAGMA user_version=99")  # Disposable fixture: exercise fail-closed initialization.
         server.start()
         clients(server, "guard")
         server.stop()
-        evidence = {"status": "passed", "paper": "1.21.1-133", "run": str(RUN), "elapsed_seconds": round(time.time()-started, 1), "phases": ["main", "ordinary-player-ports", "clean-restart", "forced-stop-recovery", "initialization-guard"], "fabric_client": "not tested"}
+        evidence = {"status": "passed", "paper": "1.21.1-133", "run": str(RUN), "elapsed_seconds": round(time.time()-started, 1), "phases": ["main", "ordinary-player-ports", "standalone-clean-restart-twice", "forced-stop-recovery", "kill-after-plugin-disable", "hot-unload", "abnormal-exit-70", "initialization-guard"], "supervisor_finalizer": False,"fabric_client": "not tested"}
         evidence["placement_protocol"] = "PaperAccurateBlockPlacement 1.2.0 / ProtocolLib 5.4.0" if placement else "not installed"
         (RUN / "result.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
         print(json.dumps(evidence), flush=True)

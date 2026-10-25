@@ -2,6 +2,7 @@ package dev.cloudstorage;
 
 import dev.cloudstorage.command.CloudCommand;
 import dev.cloudstorage.config.SettingsMigration;
+import dev.cloudstorage.lifecycle.PaperShutdownCheckpoint;
 import dev.cloudstorage.port.Ports;
 import dev.cloudstorage.printer.CloudShulker;
 import dev.cloudstorage.storage.*;
@@ -27,6 +28,7 @@ public final class CloudStoragePlugin extends JavaPlugin {
     private Ports ports;
     private Set<String> blocked;
     private boolean ready;
+    private PaperShutdownCheckpoint shutdownCheckpoint;
 
     @Override public void onEnable() {
         // Install token guards even if the database/configuration cannot be opened.
@@ -43,6 +45,11 @@ public final class CloudStoragePlugin extends JavaPlugin {
             Files.createDirectories(getDataFolder().toPath());
             blocked=new HashSet<>(getConfig().getStringList("storage.blocked-materials"));
             ledger=new Ledger(getDataFolder().toPath().resolve("storage.sqlite"),getConfig().getLong("storage.capacity",1_000_000_000),getConfig().getInt("storage.max-types",4096));
+            try { shutdownCheckpoint=new PaperShutdownCheckpoint(getServer(),getDataFolder().toPath().resolve("storage.sqlite")); }
+            catch (ReflectiveOperationException | RuntimeException e) {
+                getLogger().log(Level.WARNING,"Standalone shutdown checkpoint unsupported; supervisor finalizer is required",e);
+            }
+            if (ledger.confirmedShutdown()) getLogger().info("Confirmed previous Paper shutdown and exited JVM; standalone checkpoint accepted");
             access=new Access(ledger,getConfig().getString("default-mode","shared"));
             transfers=new Transfers(ledger,this::forbidden,item -> Items.empty(item) || shulkers.isToken(item));
             menus=new CloudMenu(this);
@@ -80,6 +87,7 @@ public final class CloudStoragePlugin extends JavaPlugin {
         if (transfers!=null) transfers.stop();
         if (ports!=null) ports.pause();
         if (ledger==null) return;
+        boolean prepared=false;
         try {
             if (ready) {
                 for (Player player:Bukkit.getOnlinePlayers()) {
@@ -88,11 +96,17 @@ public final class CloudStoragePlugin extends JavaPlugin {
                 }
                 for (World world:Bukkit.getWorlds()) world.save();
                 // Hot-disable must remain dirty: tokens require active protection even after shutdown.
-                if (Bukkit.isStopping()) ledger.prepareShutdown();
+                if (Bukkit.isStopping()) prepared=ledger.prepareShutdown();
             }
         } catch (RuntimeException e) { getLogger().log(Level.SEVERE,"Could not checkpoint storage; keeping dirty marker",e); }
         finally {
-            try { ledger.close(); } catch (Exception e) { getLogger().log(Level.SEVERE,"Database close failed",e); }
+            try {
+                ledger.close();
+                if (shutdownCheckpoint!=null) {
+                    if (prepared) shutdownCheckpoint.arm(ledger.session());
+                    else shutdownCheckpoint.close();
+                }
+            } catch (Exception e) { getLogger().log(Level.SEVERE,"Database close/checkpoint failed; keeping dirty protection",e); }
         }
     }
 

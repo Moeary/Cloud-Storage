@@ -1,0 +1,8 @@
+name: CloudCheckpointProbe
+version: '1.0'
+main: dev.cloudstorage.test.CheckpointProbe
+api-version: '1.21'
+loadbefore: [CloudStorage]
+commands:
+  checkpointprobe:
+    description: Disposable console-only shutdown test fixture

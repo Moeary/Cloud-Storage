@@ -1,10 +1,12 @@
 # CloudStorage
 
-Paper **1.21.1** / Java **21** 的云仓插件，当前版本 `0.2.1-SNAPSHOT`。源码独立实现，上游仅用于研究兼容行为；参考 commit 见 [来源说明](docs/references.md)。
+Paper **1.21.1** / Java **21** 的云仓插件，当前版本 `0.2.2`。源码独立实现，上游仅用于研究兼容行为；参考 commit 见 [来源说明](docs/references.md)。
 
 配套客户端源码：[Moeary/litematica-printer-cloud](https://github.com/Moeary/litematica-printer-cloud)，基于四改 v1.1.5 的 `1.1.5-cloud.1+1.21.1` 云仓适配版。完整取料测试与限制见 [0.2.0 验证记录](docs/testing-0.2.0.md)。
 
 普通玩家权限、默认共享仓与接口 5+5 的升级验证见 [0.2.1 验证记录](docs/testing-0.2.1.md)。
+
+0.2.2 修复 MCSM 等面板直接启动 JAR 时正常重启误冻结的问题，验证与升级说明见 [0.2.2 验证记录](docs/testing-0.2.2.md)。
 
 玩家默认访问全服共享仓，普通玩家可自由切换至 UUID 私人仓，并绑定每人最多 5 个输入、5 个输出世界接口。相同完整元数据的物品按 long 数量聚合，界面每格展示一组而实际库存可远大于原版堆叠上限。
 
@@ -131,7 +133,11 @@ SQLite journal 与数量变化原子提交；玩家/世界文件与 SQLite 无�
 
 恢复命令只调整账本，不自动发物品。不能将 `recover unlock` 当作每次启动必跑的命令。
 
-正常停服也须等世界异步保存收尾：插件只登记 shutdown_ready，提供的启动脚本在实际 JVM 正常退出后才清除 dirty。若使用其他 Java 启动器/面板，必须在进程退出后调用 `scripts/checkpoint.py <数据库路径> <JVM退出码>`；否则下一次启动会保守冻结。不能在 JVM 仍运行时手工调用此脚本。
+正常停服须等世界异步保存收尾。0.2.2 在 onDisable 仍只登记 shutdown_ready；JVM 关闭钩子确认 Paper 已完成存档 I/O、hasFullyShutdown=true 且 abnormalExit=false 后，原子写入 `plugins/CloudStorage/storage.sqlite.shutdown.properties`。数据库的 active 此时仍保留；下次启动确认旧进程身份已退出、凭据与 session/候选匹配且无 PENDING，才接受正常退出。MCSM 可直接启动 JAR，无需额外 Python 或脚本。
+
+强杀、崩溃、热卸载、非零异常退出、凭据缺失/过期或未完成交易仍冻结。若服务器分支缺少所需 Paper 1.21.1 关闭标志，插件记录明确警告并保持保守策略。自带 supervisor 的 `scripts/checkpoint.py <数据库路径> <JVM退出码>` 仍可在实际 JVM 正常退出后使用，禁止在服务器仍运行时调用。
+
+**从旧版升级时，已有冻结不会凭 pending=0 自动消除。** 先联合备份数据库/玩家/世界，核对旧版停服日志和近期转移；确认后执行一次 `/cs recover unlock`。随后正常 stop 与启动将使用新退出凭据，不需反复解锁。不要手改 active、删除数据库或添加开服自动 recover unlock。
 
 ## 目录与版本管理
 

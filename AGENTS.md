@@ -24,7 +24,7 @@
 - 世界接口须校验所有者、位置、世界 UUID、区块加载、容器类型及权限；禁止跨玩家改绑。
 - SQLite WAL + FULL，数据库扣账/入账与 journal 原子提交。游戏库存与数据库不具有分布式原子性，未完成转移和非受控停机必须 fail closed，禁止自动重放待定物品。
 - 数据库故障禁止继续交易；禁止把“未运行”“协议模拟”写成真实客户端打印验证。
-- Bukkit 卸载阶段不得清除 active/dirty；只能写 shutdown_ready。实际 JVM 正常退出后，由 scripts/checkpoint.py 校验 session 和 PENDING 再清除，禁止在进程运行时调用 finalizer。
+- Bukkit 卸载阶段不得清除 active/dirty；只能写 shutdown_ready。外部 supervisor 可在实际 JVM 正常退出后运行 checkpoint.py；面板直启模式仅在 Paper hasFullyShutdown=true、abnormalExit=false 时留下与 session 绑定的退出凭据，下次启动确认旧进程身份已退出且无 PENDING 后接受。禁止仅凭 pending=0、onDisable 或旧凭据自动解冻。
 
 ## 检查与交付
 - `pixi run test` / `pixi run build`；修改后运行相称的集成测试 `pixi run integration`。

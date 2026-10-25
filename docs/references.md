@@ -22,3 +22,5 @@
 2026-10-25：另建可修改客户端分支目录 `D:/Code/Java/litematica-printer-cloud`，基于上述 water2004 v1.1.5 commit，保留 AGPL-3.0、署名和完整构建源码。按需通道和回填改动位于该客户端项目，没有复制进独立 Paper 插件；完整对应源码随本地发行包提供。上述“没有修改客户端”的说明只针对 2026-10-24 的历史检查。
 
 中文名称取自指挥官已安装的 Minecraft 1.21.1 官方本地资产 `assets/indexes/17.json` 所引用的 `minecraft/lang/zh_cn.json`，对象 SHA1 `c4ea30a988baf02b7e2a1ac11ba1b252423c4a35`。只提取 block/item 名称共 1785 项到 `src/main/resources/names/zh_cn.properties`，不使用在线翻译或模组自定义物品表。
+
+0.2.2 对照正式服 Paper 1.21.1 build 116，官方 [构建元信息](https://fill.papermc.io/v3/projects/paper/versions/1.21.1/builds/116)，JAR SHA256 `6d7fc7a360a04e1996e1f4ee9e74ace69d37eccb7205e4b564531fb2147fe8eb`。对固定服务器字节码核对末期 `hasFullyShutdown` 与 `abnormalExit` 的顺序，并在完整 Java 进程中验证关闭钩子与下一 JVM 接收凭据；不修改 Paper，也不从上游复制库存实现。

@@ -14,4 +14,6 @@ GUI 搜索按钮保存有时限的 UUID 请求，AsyncChatEvent 消费关键词�
 
 数据层是 SQLite WAL / synchronous FULL，单服务器单写者，schema 带 user_version，journal 记录完整外部库存前后快照。先将云仓变化与 PENDING 记录原子提交，再修改外部库存、保存玩家，最后将日志置 DONE。错误时全局冻结交易；重启不自动重放。
 
-受控停止先阻止新交易、保存玩家与世界，插件只写入该 session 的 shutdown_ready 候选。Paper 的世界 I/O 在卸载插件后仍可能收尾；启动脚本必须等实际 JVM 正常退出且返回 0，才通过 checkpoint.py 将 active 标记改为 false。停服中途强杀、没有候选、未处理转移或初始化失败均不清除 dirty。非受控停止冻结全部交易，管理员审核后方可解锁。无跨服务器共享数据库支持，无 Folia 支持。
+受控停止先阻止新交易、保存玩家与世界，插件只写入该 session 的 shutdown_ready 候选。Paper 的世界 I/O 在卸载插件后仍可能收尾；0.2.2 的独立 JVM 关闭钩子只在 hasFullyShutdown=true、abnormalExit=false 且候选成功时写入退出凭据，不修改数据库。Paper 1.21.1 的 hasFullyShutdown 在玩家/世界保存、RegionFileIOThread.deinit 和执行器收尾之后设置；abnormalExit 分支请求退出码 70，正常分支请求 0。
+
+下次 Ledger 启动在重置 session 前校验凭据格式、session、shutdown_ready、PENDING 和旧 PID/startInstant 身份；旧 JVM 已退出或 PID 确被更新的进程复用时才认可。PID 尚存活、信息不明、旧/坏凭据、没有候选及既有冻结均不会被凭据绕过。原 supervisor 在观察 JVM 退出码 0 后的 checkpoint.py 仍兼容。无跨服务器共享数据库支持，无 Folia 支持。

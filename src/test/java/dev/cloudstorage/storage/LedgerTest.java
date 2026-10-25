@@ -155,4 +155,46 @@ class LedgerTest {
         assertTrue(ledger.frozen());
         assertEquals(64,ledger.amount(ALICE,STONE.key()));
     }
+
+    private void exitedReceipt(String session) throws Exception {
+        Path java=Path.of(System.getProperty("java.home"),"bin",System.getProperty("os.name").startsWith("Windows")?"java.exe":"java");
+        Process child=new ProcessBuilder(java.toString(),"-cp",System.getProperty("java.class.path"),ReceiptWriter.class.getName(),dir.resolve("vault.db").toString(),session).inheritIO().start();
+        assertEquals(0,child.waitFor());
+    }
+
+    @Test void exitedJvmReceiptAndCandidateRestoreWithoutSupervisor() throws Exception {
+        transfer(ALICE,STONE,64);
+        String session=ledger.session(); assertTrue(ledger.prepareShutdown()); ledger.close();
+        exitedReceipt(session);
+        // Receipt creation leaves the DB dirty; only the NEXT JVM may confirm the previous exit.
+        try (Connection db=DriverManager.getConnection("jdbc:sqlite:"+dir.resolve("vault.db")); Statement s=db.createStatement(); ResultSet r=s.executeQuery("SELECT value FROM meta WHERE key='active'")) { assertEquals("true",r.getString(1)); }
+        ledger=new Ledger(dir.resolve("vault.db"),10000,8);
+        assertTrue(ledger.confirmedShutdown()); assertFalse(ledger.frozen());
+        assertEquals(64,ledger.amount(ALICE,STONE.key()));
+    }
+
+    @Test void liveJvmReceiptCannotClearProtection() throws Exception {
+        String session=ledger.session(); ledger.prepareShutdown();
+        ShutdownReceipt.write(dir.resolve("vault.db"),session);
+        ledger.close(); ledger=new Ledger(dir.resolve("vault.db"),10000,8);
+        assertTrue(ledger.frozen()); assertFalse(ledger.confirmedShutdown());
+    }
+
+    @Test void staleReceiptAndMissingCandidateCannotUnlock() throws Exception {
+        String old=ledger.session(); ledger.prepareShutdown(); ledger.close();
+        exitedReceipt(UUID.randomUUID().toString());
+        ledger=new Ledger(dir.resolve("vault.db"),10000,8);
+        assertTrue(ledger.frozen()); assertFalse(ledger.prepareShutdown());
+        ledger.close(); exitedReceipt(old);
+        ledger=new Ledger(dir.resolve("vault.db"),10000,8);
+        assertTrue(ledger.frozen());
+    }
+
+    @Test void pendingTransferCannotBeApprovedEvenWithReceipt() throws Exception {
+        ledger.prepare(UUID.randomUUID().toString(),ALICE,STONE,64,"test",new byte[]{1},new byte[]{2});
+        String session=ledger.session(); assertFalse(ledger.prepareShutdown()); ledger.close();
+        try (Connection db=DriverManager.getConnection("jdbc:sqlite:"+dir.resolve("vault.db")); PreparedStatement p=db.prepareStatement("UPDATE meta SET value=? WHERE key='shutdown_ready'")) { p.setString(1,session); p.executeUpdate(); }
+        exitedReceipt(session); ledger=new Ledger(dir.resolve("vault.db"),10000,8);
+        assertTrue(ledger.frozen()); assertFalse(ledger.confirmedShutdown()); assertEquals(1,ledger.pending().size());
+    }
 }
