@@ -64,7 +64,7 @@ def main():
     for name in ('CloudStorage.jar','ProtocolLib.jar','PaperAccurateBlockPlacement-1.2.0.jar'):
         shutil.copy2(manual/'plugins'/name,server_dir/'plugins'/name)
     # Test the candidate plugin without deploying it to the user's manual server first.
-    shutil.copy2(ROOT/'target/cloud-storage-0.2.0-SNAPSHOT.jar',server_dir/'plugins/CloudStorage.jar')
+    shutil.copy2(ROOT/'target/cloud-storage-0.2.1-SNAPSHOT.jar',server_dir/'plugins/CloudStorage.jar')
     (server_dir/'plugins/PaperAccurateBlockPlacement').mkdir()
     shutil.copy2(manual/'plugins/PaperAccurateBlockPlacement/config.yml',server_dir/'plugins/PaperAccurateBlockPlacement/config.yml')
     version=json.loads((client/(client.name+'.json')).read_text(encoding='utf-8-sig'))

@@ -16,10 +16,10 @@ permissions:
     default: true
   cloudstorage.shared:
     description: 使用全服共享仓
-    default: op
+    default: true
   cloudstorage.port:
     description: 绑定个人世界接口
-    default: op
+    default: true
   cloudstorage.printer:
     description: 获取与使用云潜影盒
     default: true

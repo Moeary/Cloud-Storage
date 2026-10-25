@@ -97,7 +97,7 @@ def main():
         subprocess.run(["pwsh", "-NoProfile", "-File", str(ROOT / "scripts/server.ps1"), "-Action", "Prepare"], cwd=ROOT, check=True)
         if "eula=true" not in (SERVER / "eula.txt").read_text(encoding="utf-8-sig"):
             raise RuntimeError("Minecraft EULA must be explicitly accepted")
-        plugin = ROOT / "target/cloud-storage-0.2.0-SNAPSHOT.jar"
+        plugin = ROOT / "target/cloud-storage-0.2.1-SNAPSHOT.jar"
         if not plugin.exists():
             raise RuntimeError("Run pixi run build first")
         (SERVER / "plugins").mkdir(exist_ok=True)

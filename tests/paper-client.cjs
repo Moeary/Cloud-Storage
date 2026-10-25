@@ -60,6 +60,54 @@ async function close(bot) { if (bot.currentWindow) { bot.closeWindow(bot.current
 async function click(bot,slot,button=0,mode=0) { await bot.clickWindow(slot,button,mode); await sleep(250); }
 async function equip(bot,name) { const item=bot.inventory.items().find(i=>i.name===name); assert.ok(item,'missing '+name); await bot.equip(item,'hand'); await sleep(200); }
 
+async function portQuotas(alice) {
+  await consoleCommand('deop CloudAlice');
+  await command(alice,'/cs shulker off','云潜影盒已关闭');
+  await clear(alice);
+  await command(alice,'/cs mode shared','mode=shared');
+  await consoleCommand('tp CloudAlice 0.5 -60 4.5');
+  await consoleCommand('give CloudAlice minecraft:barrel 12');
+  await equip(alice,'barrel');
+  const Vec3=require('vec3').Vec3;
+  for (const z of [1,2]) for (let x=-2;x<=3;x++) {
+    await consoleCommand(`setblock ${x} -60 ${z} minecraft:air`);
+    await consoleCommand(`setblock ${x} -61 ${z} minecraft:stone`);
+    const floor=alice.blockAt(new Vec3(x,-61,z));
+    await alice.placeBlock(floor,new Vec3(0,1,0)); await sleep(150);
+    assert.equal(alice.blockAt(new Vec3(x,-60,z)).name,'barrel');
+  }
+  await consoleCommand('give CloudAlice minecraft:brick 1'); await equip(alice,'brick');
+  const aim=async(bot,x,z)=>{ await bot.lookAt(new Vec3(x+0.5,-59.05,z+0.5)); await sleep(100); };
+  for (let x=-2;x<=2;x++) { await aim(alice,x,1); await command(alice,'/cs port input','port=input bound'); }
+  await aim(alice,3,1); await command(alice,'/cs port input','输入接口上限（5 个）');
+  // Changing selected vault cannot evade a UUID's quota; output has its independent allowance.
+  await command(alice,'/cs mode personal','mode=personal');
+  await command(alice,'/cs port input','输入接口上限（5 个）');
+  for (let x=-2;x<=2;x++) { await aim(alice,x,2); await command(alice,'/cs port output','port=output bound'); }
+  await aim(alice,3,2); await command(alice,'/cs port output','输出接口上限（5 个）');
+  await command(alice,'/cs port list','输入=5/5，输出=5/5');
+  let ports=await sql('SELECT * FROM ports'); assert.equal(ports.length,10);
+  assert.equal(ports.filter(p=>p.mode==='input').length,5); assert.equal(ports.filter(p=>p.mode==='output').length,5);
+  await aim(alice,-2,1); await command(alice,'/cs port unbind','port=unbound');
+  await aim(alice,3,1); await command(alice,'/cs port input','port=input bound');
+  await aim(alice,-2,1); await command(alice,'/cs port input','输入接口上限（5 个）');
+  const peer=await connect('CloudPeer');
+  await command(peer,'/cs mode','mode=shared');
+  await consoleCommand('tp CloudPeer 4.5 -60 4.5');
+  await consoleCommand('setblock 4 -60 2 minecraft:air');
+  await consoleCommand('setblock 4 -61 2 minecraft:stone');
+  await consoleCommand('give CloudPeer minecraft:barrel 1'); await equip(peer,'barrel');
+  await peer.placeBlock(peer.blockAt(new Vec3(4,-61,2)),new Vec3(0,1,0)); await sleep(200);
+  await aim(peer,4,2); await command(peer,'/cs port input','port=input bound');
+  await command(peer,'/cs port list','输入=1/5，输出=0/5');
+  await consoleCommand('tp CloudPeer 0.5 -60 4.5');
+  await aim(peer,-1,1); await command(peer,'/cs port unbind','error=接口不属于此 UUID');
+  assert.equal((await sql('SELECT * FROM ports')).length,11);
+  await command(alice,'/cs shulker auto','云潜影盒已绑定');
+  assert.equal(await total('STONE'),192);
+  pass('non-OP players bind 5 inputs plus 5 outputs; sixth of each rejected across vaults; unbind frees capacity; UUID quotas/ownership isolated');
+}
+
 async function main() {
   const alice=await connect('CloudAlice');
   await consoleCommand('op CloudAlice');
@@ -76,6 +124,9 @@ async function main() {
     await command(alice,'/cs status','frozen=false');
     assert.equal(await total('STONE'),192);
     await command(alice,'/cs mode','mode=personal');
+    await consoleCommand('deop CloudAlice');
+    await command(alice,'/cs port list','输入=5/5，输出=5/5');
+    assert.equal((await sql('SELECT * FROM ports')).length,11);
     await command(alice,'/cs withdraw stone 1','withdraw=1');
     await equip(alice,'stone'); // Token migration can change which hotbar slot is selected across login.
     await command(alice,'/cs deposit 1','deposit=1');
@@ -92,8 +143,12 @@ async function main() {
     await command(alice,'/cs status','frozen=false');
     pass('forced stop freezes transfers until operator audit; no item replay'); return;
   }
+  if (phase==='ports') { await portQuotas(alice); return; }
 
   const bob=await connect('CloudBob');
+  await command(bob,'/cs mode','mode=shared');
+  await command(bob,'/cs mode personal','mode=personal');
+  await command(alice,'/cs mode personal','mode=personal');
   await consoleCommand('tp CloudAlice 0 -60 0');
   await consoleCommand('tp CloudBob 4 -60 0');
   await clear(alice); await clear(bob);
@@ -108,8 +163,9 @@ async function main() {
 
   await command(bob,'/cs withdraw stone 1','error=');
   assert.equal(count(bob,'stone'),0);
-  await command(bob,'/cs mode shared','error=');
-  pass('UUID isolation and shared permission denial');
+  await command(bob,'/cs mode shared','mode=shared');
+  await command(bob,'/cs mode personal','mode=personal');
+  pass('UUID personal isolation and non-OP default shared access/switching');
 
   let window=await open(alice);
   let slot=window.slots.findIndex((i,index)=>index<45 && i?.name==='stone');
@@ -144,16 +200,14 @@ async function main() {
   await command(alice,'/cs mode shared','mode=shared');
   await consoleCommand('give CloudAlice minecraft:dirt 64');
   await command(alice,'/cs deposit all','deposit=64');
-  await consoleCommand('op CloudBob');
   await command(bob,'/cs mode shared','mode=shared');
   // Two clients race against one 64-item balance. Total delivery remains exactly 64.
   alice.chat('/cs withdraw dirt 64'); bob.chat('/cs withdraw dirt 64');
   await until(()=>count(alice,'dirt')+count(bob,'dirt')===64,'shared race');
   assert.equal(await total('DIRT'),0);
   pass('shared multi-client withdrawal cannot overdraw');
-  await consoleCommand('deop CloudBob');
   await command(bob,'/cs mode personal','mode=personal');
-  pass('revoked shared permission still permits returning to own UUID vault');
+  pass('ordinary player can return from shared to own UUID vault');
   await command(alice,'/cs mode personal','mode=personal');
 
   await command(alice,'/cs shulker','云潜影盒已绑定');
@@ -318,7 +372,7 @@ async function main() {
   assert.equal(alice.inventory.selectedItem,null);
   assert.equal(count(alice,'purple_shulker_box'),0);
   assert.equal(await total('STONE'),beforeOff);
-  // A revoked shared permission must not trap its shell in the inventory.
+  // A regular non-OP player may discard a shell bound to the shared vault.
   await command(alice,'/cs mode shared','mode=shared');
   await command(alice,'/cs shulker','云潜影盒已绑定');
   await consoleCommand('deop CloudAlice');
@@ -355,6 +409,7 @@ async function main() {
   pass('named/NBT resources, equipment, shulkers and player heads reject command and GUI deposits without loss');
 
   // Place and bind genuine world interfaces through normal client block placement.
+  await consoleCommand('deop CloudAlice');
   await consoleCommand('setblock 2 -61 0 minecraft:stone');
   await consoleCommand('setblock 2 -60 0 minecraft:air');
   await consoleCommand('give CloudAlice minecraft:barrel 1');

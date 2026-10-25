@@ -1,6 +1,7 @@
 package dev.cloudstorage;
 
 import dev.cloudstorage.command.CloudCommand;
+import dev.cloudstorage.config.SettingsMigration;
 import dev.cloudstorage.port.Ports;
 import dev.cloudstorage.printer.CloudShulker;
 import dev.cloudstorage.storage.*;
@@ -35,10 +36,14 @@ public final class CloudStoragePlugin extends JavaPlugin {
         try {
             if (!Bukkit.getMinecraftVersion().equals("1.21.1")) throw new IllegalStateException("Only Paper Minecraft 1.21.1 is supported");
             saveDefaultConfig();
+            if (SettingsMigration.upgrade(getConfig())) {
+                saveConfig();
+                getLogger().info("Upgraded defaults: shared vault, separate input/output quotas; saved player choices and assets preserved");
+            }
             Files.createDirectories(getDataFolder().toPath());
             blocked=new HashSet<>(getConfig().getStringList("storage.blocked-materials"));
             ledger=new Ledger(getDataFolder().toPath().resolve("storage.sqlite"),getConfig().getLong("storage.capacity",1_000_000_000),getConfig().getInt("storage.max-types",4096));
-            access=new Access(ledger,getConfig().getString("default-mode","personal"));
+            access=new Access(ledger,getConfig().getString("default-mode","shared"));
             transfers=new Transfers(ledger,this::forbidden,item -> Items.empty(item) || shulkers.isToken(item));
             menus=new CloudMenu(this);
             ports=new Ports(this);

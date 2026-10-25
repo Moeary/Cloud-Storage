@@ -1,5 +1,6 @@
-# 重启后生效。personal / shared；shared 仍须 cloudstorage.shared 权限。
-default-mode: personal
+# 重启后生效。普通玩家默认可使用共享仓和接口；权限插件仍可显式拒绝。
+config-version: 2
+default-mode: shared
 storage:
   capacity: 1000000000
   max-types: 4096
@@ -10,7 +11,8 @@ ports:
   interval-ticks: 40
   # 每轮只处理一个端口，轮流处理。不加载区块，不离线代取个人仓。
   items-per-transfer: 64
-  max-per-player: 8
+  max-inputs-per-player: 5
+  max-outputs-per-player: 5
 printer:
   enabled: true
   refresh-ticks: 10

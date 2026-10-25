@@ -126,7 +126,7 @@ def main():
     eula = ROOT / "run/server/eula.txt"
     if not eula.exists() or "eula=true" not in eula.read_text(encoding="utf-8-sig"):
         raise RuntimeError("Explicit EULA acceptance is required: pixi run server-prepare -AcceptEula")
-    plugin = ROOT / "target/cloud-storage-0.2.0-SNAPSHOT.jar"
+    plugin = ROOT / "target/cloud-storage-0.2.1-SNAPSHOT.jar"
     if not plugin.exists():
         raise RuntimeError("Run pixi run build first")
     npm_cli = ROOT / ".pixi/envs/default/node_modules/npm/bin/npm-cli.js"
@@ -134,6 +134,9 @@ def main():
     RUN.mkdir(parents=True)
     (RUN / "plugins").mkdir()
     shutil.copy2(plugin, RUN / "plugins/CloudStorage.jar")
+    # Exercise the actual old-file migration, including JavaPlugin's new resource defaults.
+    (RUN / "plugins/CloudStorage").mkdir()
+    (RUN / "plugins/CloudStorage/config.yml").write_text("default-mode: personal\nports:\n  max-per-player: 8\n",encoding="utf-8")
     placement = os.environ.get("CLOUD_TEST_PLACEMENT") == "1"
     if placement:
         fixture = ROOT / ".cache/placement-protocol"
@@ -157,6 +160,7 @@ def main():
     try:
         server.start()
         clients(server, "main")
+        clients(server, "ports")
         server.stop()
         server.start()
         clients(server, "restart")
@@ -169,7 +173,7 @@ def main():
         server.start()
         clients(server, "guard")
         server.stop()
-        evidence = {"status": "passed", "paper": "1.21.1-133", "run": str(RUN), "elapsed_seconds": round(time.time()-started, 1), "phases": ["main", "clean-restart", "forced-stop-recovery", "initialization-guard"], "fabric_client": "not tested"}
+        evidence = {"status": "passed", "paper": "1.21.1-133", "run": str(RUN), "elapsed_seconds": round(time.time()-started, 1), "phases": ["main", "ordinary-player-ports", "clean-restart", "forced-stop-recovery", "initialization-guard"], "fabric_client": "not tested"}
         evidence["placement_protocol"] = "PaperAccurateBlockPlacement 1.2.0 / ProtocolLib 5.4.0" if placement else "not installed"
         (RUN / "result.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
         print(json.dumps(evidence), flush=True)

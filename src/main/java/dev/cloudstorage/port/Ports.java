@@ -25,6 +25,9 @@ public final class Ports implements Listener, Runnable {
     private boolean paused;
     public Ports(CloudStoragePlugin plugin) { this.plugin=plugin; placedBy=new NamespacedKey(plugin,"placed_by"); }
     public void pause() { paused=true; }
+    public PortLimits limits() {
+        return new PortLimits(plugin.getConfig().getInt("ports.max-inputs-per-player",5),plugin.getConfig().getInt("ports.max-outputs-per-player",5));
+    }
 
     private String id(Block block) { return block.getWorld().getUID()+":"+block.getX()+":"+block.getY()+":"+block.getZ(); }
     private Optional<Ledger.Port> find(Block block) { return plugin.ledger().ports().stream().filter(p -> p.id().equals(id(block))).findFirst(); }
@@ -38,8 +41,7 @@ public final class Ports implements Listener, Runnable {
         if (!player.getUniqueId().toString().equals(barrel.getPersistentDataContainer().get(placedBy,PersistentDataType.STRING)))
             throw new StorageException("只能绑定本插件启用后由自己放置的木桶");
         if (!barrel.getInventory().getViewers().isEmpty()) throw new StorageException("请先关闭木桶窗口");
-        long count=plugin.ledger().ports().stream().filter(p -> p.owner().equals(player.getUniqueId().toString())).count();
-        if (count>=plugin.getConfig().getInt("ports.max-per-player",8)) throw new StorageException("已达个人接口数量上限");
+        limits().requireRoom(plugin.ledger().ports(),player.getUniqueId().toString(),mode);
         String filter=null;
         if (mode.equals("output")) {
             ItemStack held=player.getInventory().getItemInMainHand();

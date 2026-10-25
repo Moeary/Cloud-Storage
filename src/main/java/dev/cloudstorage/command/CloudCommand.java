@@ -90,8 +90,13 @@ public final class CloudCommand implements CommandExecutor,TabCompleter {
                     switch (args[1]) {
                         case "input","output" -> { plugin.ports().bind(player,args[1]); plugin.message(player,"port="+args[1]+" bound"); }
                         case "unbind" -> { plugin.ports().unbind(player); plugin.message(player,"port=unbound"); }
-                        case "list" -> plugin.ledger().ports().stream().filter(p -> p.owner().equals(player.getUniqueId().toString()))
-                                .forEach(p -> plugin.message(player,p.id()+" "+p.mode()+" "+p.vault()));
+                        case "list" -> {
+                            List<Ledger.Port> ports=plugin.ledger().ports();
+                            var limits=plugin.ports().limits();
+                            String owner=player.getUniqueId().toString();
+                            plugin.message(player,"接口：输入="+limits.count(ports,owner,"input")+"/"+limits.inputs()+"，输出="+limits.count(ports,owner,"output")+"/"+limits.outputs());
+                            ports.stream().filter(p -> p.owner().equals(owner)).forEach(p -> plugin.message(player,p.id()+" "+p.mode()+" "+p.vault()));
+                        }
                         default -> throw new StorageException("/cs port input|output|unbind|list");
                     }
                 }
