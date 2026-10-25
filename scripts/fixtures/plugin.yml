@@ -1,0 +1,6 @@
+name: CloudStorageFixture
+version: '1.0-local-test'
+main: dev.cloudstorage.fixture.SeedSharedItems
+api-version: '1.21'
+depend: [CloudStorage]
+description: Disposable explicit local-test provisioning helper; remove after provisioning

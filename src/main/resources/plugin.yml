@@ -1,0 +1,28 @@
+name: CloudStorage
+version: '${project.version}'
+main: dev.cloudstorage.CloudStoragePlugin
+api-version: '1.21'
+description: UUID-bound cloud storage with audited transfers and printer shulker access
+authors: [CloudStorage]
+loadbefore: [AxShulkers]
+commands:
+  cloudstorage:
+    aliases: [cloud, cs]
+    description: 打开或管理云仓
+    usage: /cs help
+    permission: cloudstorage.use
+permissions:
+  cloudstorage.use:
+    default: true
+  cloudstorage.shared:
+    description: 使用全服共享仓
+    default: op
+  cloudstorage.port:
+    description: 绑定个人世界接口
+    default: op
+  cloudstorage.printer:
+    description: 获取与使用云潜影盒
+    default: true
+  cloudstorage.admin:
+    description: 审计恢复与管理接口
+    default: op

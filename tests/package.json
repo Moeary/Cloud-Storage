@@ -1,0 +1,7 @@
+{
+  "name": "cloud-storage-paper-integration",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Isolated offline protocol tests against real Paper 1.21.1",
+  "dependencies": {"mineflayer": "4.39.0"}
+}

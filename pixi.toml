@@ -1,0 +1,29 @@
+[workspace]
+name = "cloud-storage"
+version = "0.2.0"
+description = "UUID-bound transactional cloud storage for Paper 1.21.1"
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[dependencies]
+openjdk = "21.*"
+maven = "3.9.*"
+nodejs = "22.*"
+python = "3.12.*"
+
+[tasks]
+test-java = "mvn --batch-mode test"
+test-scripts = "python -m unittest discover -s tests -p 'test_*.py'"
+test = { depends-on = ["test-java", "test-scripts"] }
+build = { cmd = "mvn --batch-mode verify", depends-on = ["test-scripts"] }
+server-prepare = "pwsh -NoProfile -File scripts/server.ps1 -Action Prepare"
+server = "pwsh -NoProfile -File scripts/server.ps1 -Action Start"
+server-start = "python scripts/server_control.py start"
+server-status = "python scripts/server_control.py status"
+server-stop = "python scripts/server_control.py stop"
+server-console = "python scripts/server_control.py console"
+audit = "python scripts/audit.py"
+integration = "python scripts/integration.py"
+integration-placement = { cmd = "python scripts/integration.py", env = { CLOUD_TEST_PLACEMENT = "1" } }
+client-world = "python scripts/client_world_smoke.py"
+

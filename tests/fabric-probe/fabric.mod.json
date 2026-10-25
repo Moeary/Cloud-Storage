@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "cloud_dependency_probe",
+  "version": "1.0.0",
+  "name": "CloudStorage isolated dependency probe",
+  "environment": "client",
+  "entrypoints": {"client": ["dev.cloudstorage.test.DependencyProbe"]},
+  "depends": {"minecraft": "1.21.1", "fabricloader": ">=0.16.0", "java": ">=21"}
+}

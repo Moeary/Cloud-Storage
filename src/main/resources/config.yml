@@ -1,0 +1,17 @@
+# 重启后生效。personal / shared；shared 仍须 cloudstorage.shared 权限。
+default-mode: personal
+storage:
+  capacity: 1000000000
+  max-types: 4096
+  # 在默认特殊物品禁存规则之外，额外禁止这些普通材料。旧库存仍可取出。
+  blocked-materials: [BEDROCK, BARRIER, COMMAND_BLOCK, CHAIN_COMMAND_BLOCK, REPEATING_COMMAND_BLOCK, STRUCTURE_BLOCK, JIGSAW, STRUCTURE_VOID]
+ports:
+  enabled: true
+  interval-ticks: 40
+  # 每轮只处理一个端口，轮流处理。不加载区块，不离线代取个人仓。
+  items-per-transfer: 64
+  max-per-player: 8
+printer:
+  enabled: true
+  refresh-ticks: 10
+  # auto 由配套打印机按需请求；旧客户端可 /cs shulker stone glass 固定目录。
