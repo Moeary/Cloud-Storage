@@ -26,4 +26,3 @@ audit = "python scripts/audit.py"
 integration = "python scripts/integration.py"
 integration-placement = { cmd = "python scripts/integration.py", env = { CLOUD_TEST_PLACEMENT = "1" } }
 client-world = "python scripts/client_world_smoke.py"
-
